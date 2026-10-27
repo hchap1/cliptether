@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use objc2::ClassType;
 use objc2::rc::Retained;
 use objc2::runtime::ProtocolObject;
 use objc2_app_kit::{NSPasteboard, NSPasteboardWriting};
