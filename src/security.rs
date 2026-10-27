@@ -1,6 +1,8 @@
 use std::path::PathBuf;
 use bytes::Bytes;
 
+use crate::error::Res;
+
 use chacha20poly1305::{
     aead::{Aead, AeadCore, KeyInit, OsRng},
     XChaCha20Poly1305, XNonce,

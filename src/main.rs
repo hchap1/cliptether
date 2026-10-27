@@ -1,3 +1,4 @@
+mod clipboard;
 mod error;
 mod security;
 mod config;
@@ -10,13 +11,11 @@ use crate::security::load_key;
 pub const DAEMON_NAME: &str = "cliptether";
 pub const PORT: u16 = 12345;
 
-use bytes::Bytes;
 use spiderweb_async::network::Server;
 use clipboard_master::CallbackResult;
 use clipboard_master::ClipboardHandler;
 use clipboard_master::Master;
 use async_channel::Sender;
-use async_channel::Receiver;
 
 struct Handler {
     sender: Sender<()>
@@ -34,7 +33,7 @@ async fn main() -> Res<()> {
 
     let mut config = load_config().await?;
     let key = match config.key_file.as_ref() {
-        Some(keyfile) => load_key(keyfile.to_path_buf())?,
+        Some(keyfile) => load_key(keyfile.to_path_buf()).await?,
         None => {
             let keyfile = rfd::AsyncFileDialog::new()
                 .set_title("Select 32B keyfile")
@@ -51,32 +50,30 @@ async fn main() -> Res<()> {
         }
     };
     
-    let mut server = Server::build(DAEMON_NAME, PORT, None, 10, 10);
+    let server = Server::build(DAEMON_NAME, PORT, None, 10, 10);
 
     let (callback_sender, callback_receiver) = async_channel::bounded(10);
     tokio::task::spawn_blocking(|| Master::new(Handler { sender: callback_sender }).expect("Failed to start clipboard callback").run());
 
     let sender = server.detach_send_all();
 
-    tokio::spawn(async {
-
+    tokio::spawn(async move {
         while let Ok(()) = callback_receiver.recv().await {
-            // grab the clipboard content, serialize
-
-            let packet = Bytes::from_static(&[0_u8]); // placeholder
-            let encrypted = crate::security::encrypt(key, &packet);
+            let Some(content) = clipboard::read() else { continue };
+            let Ok(packet) = postcard::to_allocvec(&content) else { continue };
+            let encrypted = crate::security::encrypt(&key, &packet);
             let _ = sender.send(encrypted).await;
         }
-
     });
 
     while let Ok(packet) = server.incoming.recv().await {
-        let decrypted = match crate::security::decrypt(key, &packet.0) {
+        let decrypted = match crate::security::decrypt(&key, &packet.0) {
             Some(trusted) => trusted,
             None => continue
         };
 
-        // convert back into a clipboard object, write to clipboard
+        let Ok(content) = postcard::from_bytes::<clipboard::Content>(&decrypted) else { continue };
+        let _ = clipboard::write(content);
     }
 
     Ok(())
