@@ -1,0 +1,13 @@
+[package]
+name = "cliptether"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+chacha20poly1305 = "0.10.1"
+directories = "6.0.0"
+rfd = "0.17.2"
+serde = { version = "1.0.229", features = ["derive"] }
+spiderweb-async = "0.1.0"
+tokio = { version = "1.54.1", features = ["macros", "fs"] }
+toml = "1.1.8"
