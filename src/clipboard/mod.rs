@@ -1,4 +1,6 @@
 mod files;
+#[cfg(target_os = "macos")]
+mod macos;
 
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -29,12 +31,24 @@ pub fn read() -> Option<Content> {
 
     let mut clipboard = arboard::Clipboard::new().ok()?;
 
-    if let Ok(image) = clipboard.get_image() {
-        return Some(Content::Image {
-            width: image.width as u32,
-            height: image.height as u32,
-            rgba: image.bytes.into_owned(),
-        });
+    #[cfg(target_os = "macos")]
+    let png = macos::read_png();
+    #[cfg(not(target_os = "macos"))]
+    let png: Option<Option<Content>> = None;
+
+    // A PNG that fails to decode is skipped rather than retried as TIFF, which would hit the crash.
+    match png {
+        Some(Some(image)) => return Some(image),
+        Some(None) => {}
+        None => {
+            if let Ok(image) = clipboard.get_image() {
+                return Some(Content::Image {
+                    width: image.width as u32,
+                    height: image.height as u32,
+                    rgba: image.bytes.into_owned(),
+                });
+            }
+        }
     }
 
     if let Ok(text) = clipboard.get_text() {
