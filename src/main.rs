@@ -40,6 +40,8 @@ async fn main() -> Res<()> {
                 .pick_file()
                 .await;
 
+            println!("Keyfile: {keyfile:?}");
+
             match keyfile {
                 Some(keyfile) => config.key_file = Some(keyfile.path().to_path_buf()),
                 None => panic!("Failed to select keyfile")
