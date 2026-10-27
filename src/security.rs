@@ -1,18 +1,19 @@
 use std::path::PathBuf;
+use bytes::Bytes;
 
 use chacha20poly1305::{
     aead::{Aead, AeadCore, KeyInit, OsRng},
     XChaCha20Poly1305, XNonce,
 };
 
-fn encrypt(key: &[u8; 32], plaintext: &[u8]) -> Vec<u8> {
+pub fn encrypt(key: &[u8; 32], plaintext: &[u8]) -> Bytes {
     let cipher = XChaCha20Poly1305::new(key.into());
     let nonce = XChaCha20Poly1305::generate_nonce(&mut OsRng);
     let ciphertext = cipher.encrypt(&nonce, plaintext).unwrap();
-    [nonce.as_slice(), &ciphertext].concat()
+    Bytes::from_owner([nonce.as_slice(), &ciphertext].concat())
 }
 
-fn decrypt(key: &[u8; 32], packet: &[u8]) -> Option<Vec<u8>> {
+pub fn decrypt(key: &[u8; 32], packet: &[u8]) -> Option<Vec<u8>> {
     if packet.len() < 24 {
         return None;
     }
